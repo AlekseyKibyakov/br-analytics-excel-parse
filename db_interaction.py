@@ -31,7 +31,7 @@ def _check_is_in_db(object):
 
 
 def add_tags_to_message(message_id, tags_list):
-    message = session.query(Message).filter(Message.id_Сообщения == message_id).first()
+    message = session.query(Message).filter(Message.id_Сообщения == str(message_id)).first()
     for tag_name in tags_list:
         tag = session.query(Tag).filter(Tag.Название == tag_name).first()
         message.Теги.append(tag)
