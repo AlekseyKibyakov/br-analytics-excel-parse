@@ -11,21 +11,21 @@ class Message(Base):
     __tablename__ = 'message'
 
     id = sq.Column(sq.Integer, primary_key=True, autoincrement=True)
-    id_Сообщения = sq.Column(sq.VARCHAR(100))
-    Дата = sq.Column(sq.VARCHAR(100))
-    Заголовок = sq.Column(sq.VARCHAR(1500))
-    Текст = sq.Column(sq.VARCHAR(50000))
-    Url = sq.Column(sq.VARCHAR(1500))
-    Автор = sq.Column(sq.VARCHAR(1000))
-    Url_автора = sq.Column(sq.VARCHAR(1500))
-    Тип_автора = sq.Column(sq.VARCHAR(50))
-    Пол = sq.Column(sq.VARCHAR(50))
+    id_Сообщения = sq.Column(sq.VARCHAR(100000), unique=True)
+    Дата = sq.Column(sq.VARCHAR(10000))
+    Заголовок = sq.Column(sq.VARCHAR(5000))
+    Текст = sq.Column(sq.VARCHAR(100000))
+    Url = sq.Column(sq.VARCHAR(10000))
+    Автор = sq.Column(sq.VARCHAR(10000))
+    Url_автора = sq.Column(sq.VARCHAR(10000))
+    Тип_автора = sq.Column(sq.VARCHAR(500))
+    Пол = sq.Column(sq.VARCHAR(500))
     Возраст = sq.Column(sq.Integer)
-    Тип_сообщения = sq.Column(sq.VARCHAR(50))
-    Источник  = sq.Column(sq.VARCHAR(100))
-    Тип_источника = sq.Column(sq.VARCHAR(100))
-    Место_публикации = sq.Column(sq.VARCHAR(100))
-    Url_места_публикации = sq.Column(sq.VARCHAR(150))
+    Тип_сообщения = sq.Column(sq.VARCHAR(500))
+    Источник  = sq.Column(sq.VARCHAR(10000))
+    Тип_источника = sq.Column(sq.VARCHAR(1000))
+    Место_публикации = sq.Column(sq.VARCHAR(10000))
+    Url_места_публикации = sq.Column(sq.VARCHAR(10000))
     Аудитория = sq.Column(sq.Integer)
     Комментариев = sq.Column(sq.Integer)
     Цитируемость = sq.Column(sq.Integer)
@@ -35,14 +35,14 @@ class Message(Base):
     Просмотров = sq.Column(sq.Integer)
     Оценка = sq.Column(sq.Integer)
     Дублей = sq.Column(sq.Integer)
-    Тональность = sq.Column(sq.VARCHAR(100))
-    Роль_объекта = sq.Column(sq.VARCHAR(100))
+    Тональность = sq.Column(sq.VARCHAR(1000))
+    Роль_объекта = sq.Column(sq.VARCHAR(1000))
     Агрессия = sq.Column(sq.Boolean, default=False)
-    Страна = sq.Column(sq.VARCHAR(1000))
-    Регион = sq.Column(sq.VARCHAR(1000))
-    Город = sq.Column(sq.VARCHAR(1000))
-    Место = sq.Column(sq.VARCHAR(1000))
-    Адрес = sq.Column(sq.VARCHAR(1000))
+    Страна = sq.Column(sq.VARCHAR(10000))
+    Регион = sq.Column(sq.VARCHAR(10000))
+    Город = sq.Column(sq.VARCHAR(10000))
+    Место = sq.Column(sq.VARCHAR(10000))
+    Адрес = sq.Column(sq.VARCHAR(10000))
     Язык = sq.Column(sq.VARCHAR(1000))
     WOM = sq.Column(sq.Boolean, default=False)
     Обработано = sq.Column(sq.Boolean)
@@ -68,7 +68,7 @@ class Tag(Base):
     __tablename__ = 'tag'
 
     id = sq.Column(sq.Integer, primary_key=True, autoincrement=True)
-    Название = sq.Column(sq.VARCHAR(100))
+    Название = sq.Column(sq.VARCHAR(100), unique=True)
     
     def __str__(self):
         return [
@@ -79,8 +79,8 @@ class Tag(Base):
 class message_tag(Base):
     __tablename__ = 'message_tag'
     id = sq.Column(sq.Integer, primary_key=True, autoincrement=True)
-    id_Сообщения = sq.Column(sq.Integer, sq.ForeignKey('message.id'))
-    id_Тега = sq.Column(sq.Integer, sq.ForeignKey('tag.id'))
+    Сообщение = sq.Column(sq.VARCHAR(100), sq.ForeignKey('message.id_Сообщения'))
+    Тег = sq.Column(sq.VARCHAR(100), sq.ForeignKey('tag.Название'))
   
 
 # message_tag = sq.Table('message_tag',

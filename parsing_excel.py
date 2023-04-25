@@ -1,146 +1,110 @@
+from collections import Counter
 from datetime import datetime
-import db_interaction as db
+from itertools import count
+from db_interaction import add_to_db, add_tags_to_message, session
 import openpyxl as oxl
 import re
 from progress.bar import IncrementalBar
-
+# from loguru import logger
 from models import Message, Tag
+import numpy as np
+# logger.add("debug.log", format="{time} {level} {message}", level="DEBUG")
 
-file = 'MMH_RESPI_s_05.12.2022_13.04.2023-14.04.2023_643952c3ed42dd6e9d2b9572.xlsx'
+def run():
+    file = 'report.xlsx'
 
-wb = oxl.open(file)
-sh = wb.worksheets[1]
-sh.delete_cols(0)
-sh.delete_rows(1, 5)
+    wb = oxl.load_workbook(file, read_only=True)
+    sh = wb.worksheets[1]
+    # np_sh.delete_cols(0)
+    # np_sh.delete_rows(1, 5)
 
-urls_msgs = []
-
-url_re = r'.*\(\"{1}(.*)\"\){1}'
-
-bar = IncrementalBar('Countdown', max=sh.max_row + 1)
-
-# sh.max_row + 1
-tags = {}
-start_time = datetime.now()
-for column in range(35, sh.max_column):
-    tags[str(column)] = sh[1][column].value
-    tag = Tag(Название = sh[1][column].value)
-    db.add_to_db(tag)
-
-# print(tags)
-
-for row in range(2, sh.max_row + 1):
-    # try:
-        if sh[row][34].value == 'Нет':
-            sh[row][34].value = 0
-        else:
-            sh[row][34].value = 1
-        
-        if sh[row][33].value == 'WOM':
-            sh[row][33].value = 1
-        else:
-            sh[row][33].value = 0
-        
-        if sh[row][26].value == 'Агрессия':
-            sh[row][26].value = 1
-        else:
-            sh[row][26].value = 0
-        
-        message = Message(
-            id_Сообщения = sh[row][1].value,
-            Дата = sh[row][0].value,
-            Заголовок = sh[row][2].value,
-            Текст = sh[row][3].value,
-            Url = re.sub(url_re, r'\1', sh[row][5].value),
-            Автор = sh[row][8].value,
-            Url_автора = sh[row][9].value,
-            Тип_автора = sh[row][10].value,
-            Пол = sh[row][13].value,
-            Возраст = sh[row][14].value,
-            Тип_сообщения = sh[row][7].value,
-            Источник = sh[row][4].value,
-            Тип_источника = sh[row][6].value,
-            Место_публикации = sh[row][11].value,
-            Url_места_публикации = sh[row][12].value,
-            Аудитория = sh[row][15].value,
-            Комментариев = sh[row][16].value,
-            Цитируемость = sh[row][17].value,
-            Репостов = sh[row][18].value,
-            Лайков = sh[row][19].value,
-            Вовлеченность = sh[row][20].value,	
-            Просмотров = sh[row][21].value,	
-            Оценка = sh[row][22].value,
-            Дублей = sh[row][23].value,	
-            Тональность = sh[row][24].value,	
-            Роль_объекта = sh[row][25].value,	
-            Агрессия = sh[row][26].value,
-            Страна = sh[row][27].value,	
-            Регион = sh[row][28].value,	
-            Город = sh[row][29].value,
-            Место = sh[row][30].value,	
-            Адрес = sh[row][31].value,	
-            Язык = sh[row][32].value,	
-            WOM = sh[row][33].value,	
-            Обработано = sh[row][34].value
-        )
-        
-        db.add_to_db(message)
-        
-        msg_tags = []
-        for column in range(35, sh.max_column):
-            if sh[row][column].value:
-                msg_tags.append(sh[row][column].value)
-        
-        db.add_tags_to_message(message.id_Сообщения, msg_tags)
-        bar.next()
-    # except:
-    #     continue
-
-elapsed_time = datetime.now() - start_time
-
-db.session.close()
-print(elapsed_time)
-bar.finish()
-# message_dict['tags'] = []
+    np_sh = np.array([[i for i in j] for j in sh.iter_rows(min_row=6, min_col=2, values_only=True)])
     
-    # for column in range(35, sh.max_column):
-    #     if sh[row][column]:
-    #         message_dict['tags'].append(sh[row][column].value)
+    url_re = r'.*\(\"{1}(.*)\"\){1}'
+
+    bar = IncrementalBar('Countdown', max=np_sh.shape[0] + 1)
+
+    start_time = datetime.now()
+    max_col = np_sh.shape[1] + 1
+    for column in range(35, max_col-1):
+        # try:
+            tag = Tag(Название = np_sh[0, column])
+            add_to_db(tag)
+            # logger.info(f"Add {tag.Название} tag")
+        # except:
+            # session.rollback()
+            # continue
     
-    # pprint(message_dict)
     
-        
-    
+    for row in range(1, np_sh.shape[0] + 1):
+        try:
+            processed_flag = 0 if np_sh[(row, 34)] == 'Нет' else 1
+            
+            wom_flag = 1 if np_sh[row, 33] == 'WOM' else 0
 
-    # pprint(message_dict)
-    # message_dict.setdefault('url', re.sub(url_re, r'\1', sh[row][5].value))
+            aggression_flag = 1 if np_sh[row, 26] == 'Агрессия' else 0
+            
+            author_url = re.sub(url_re, r'\1', np_sh[row, 9]) if np_sh[row, 9] else None
 
+            source_url = re.sub(url_re, r'\1', np_sh[row, 12]) if np_sh[row, 12] else None
+            # logger.debug(f'Start create msg')
+            message_dict = {
+                "id_Сообщения": np_sh[row, 1],
+                "Дата": np_sh[row, 0],
+                "Заголовок": np_sh[row, 2],
+                "Текст": np_sh[row, 3],
+                "Url": re.sub(url_re, r'\1', np_sh[row, 5]),
+                "Автор": np_sh[row, 8],
+                "Url_автора": author_url,
+                "Тип_автора": np_sh[row, 10],
+                "Пол": np_sh[row, 13],
+                "Возраст": np_sh[row, 14],
+                "Тип_сообщения": np_sh[row, 7],
+                "Источник": np_sh[row, 4],
+                "Тип_источника": np_sh[row, 6],
+                "Место_публикации": np_sh[row, 11],
+                "Url_места_публикации": source_url,
+                "Аудитория": np_sh[row, 15],
+                "Комментариев": np_sh[row, 16],
+                "Цитируемость": np_sh[row, 17],
+                "Репостов": np_sh[row, 18],
+                "Лайков": np_sh[row, 19],
+                "Вовлеченность": np_sh[row, 20],	
+                "Просмотров": np_sh[row, 21],	
+                "Оценка": np_sh[row, 22],
+                "Дублей": np_sh[row, 23],	
+                "Тональность": np_sh[row, 24],	
+                "Роль_объекта": np_sh[row, 25],	
+                "Агрессия": aggression_flag,
+                "Страна": np_sh[row, 27],	
+                "Регион": np_sh[row, 28],	
+                "Город": np_sh[row, 29],
+                "Место": np_sh[row, 30],	
+                "Адрес": np_sh[row, 31],	
+                "Язык": np_sh[row, 32],	
+                "WOM": wom_flag,	
+                "Обработано": processed_flag,
+            }
+            
+            message = Message(**message_dict)
+            # logger.debug(f"End create {message.id_Сообщения} msg")
+            add_to_db(message)
+            # logger.info(f"Add {message.id_Сообщения} msg")
+            msg_tags = []
+            for column in range(35, max_col-1):
+                if np_sh[row, column]:
+                    msg_tags.append(np_sh[row, column])
+            
+            add_tags_to_message(message.id_Сообщения, msg_tags)
+            # logger.info(f"Add {message.id_Сообщения} tags msg")
+            bar.next()
+        except:
+            continue
 
+    elapsed_time = datetime.now() - start_time
 
-
-# df_mentions = pd.read_excel(file, sheet_name='Упоминания', engine='openpyxl')
-
-# df_mentions = df_mentions.drop(columns='Unnamed: 0')
-
-# titles_list = df_mentions.iloc[4].values.copy()
-
-# df_mentions = df_mentions.drop([0, 1, 2, 3, 4])
-
-# df_mentions.columns = titles_list
-
-# df_mentions.reset_index(drop=True, inplace=True)
-
-# df_mentions.to_csv('test.csv', encoding='utf8')
-
-# urls = df_mentions.iloc[:, 4]
-
-# print(urls)
-
-# # Сброс ограничений на количество выводимых рядов
-# pd.set_option('display.max_rows', 50)
- 
-# # Сброс ограничений на число столбцов
-# pd.set_option('display.max_columns', None)
- 
-# # Сброс ограничений на количество символов в записи
-# pd.set_option('display.max_colwidth', None)
+    session.close()
+    print('\n')
+    wb.close()
+    print(elapsed_time)
+    bar.finish() 
