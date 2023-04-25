@@ -1,53 +1,44 @@
-from collections import Counter
-from datetime import datetime
-from itertools import count
-from db_interaction import add_to_db, add_tags_to_message, session
+from db_interaction import add_to_db, add_tags_to_message, close_session
 import openpyxl as oxl
 import re
-from progress.bar import IncrementalBar
-# from loguru import logger
+from loguru import logger
 from models import Message, Tag
 import numpy as np
-# logger.add("debug.log", format="{time} {level} {message}", level="DEBUG")
 
-def run():
+
+def open_excel():
+    '''Open excel sheet and build numpy array'''
     file = 'report.xlsx'
-
     wb = oxl.load_workbook(file, read_only=True)
     sh = wb.worksheets[1]
-    # np_sh.delete_cols(0)
-    # np_sh.delete_rows(1, 5)
-
     np_sh = np.array([[i for i in j] for j in sh.iter_rows(min_row=6, min_col=2, values_only=True)])
-    
-    url_re = r'.*\(\"{1}(.*)\"\){1}'
+    return np_sh    
 
-    bar = IncrementalBar('Countdown', max=np_sh.shape[0] + 1)
 
-    start_time = datetime.now()
-    max_col = np_sh.shape[1] + 1
-    for column in range(35, max_col-1):
-        # try:
+def parse_tags(np_sh):
+    '''Get all tags from current worksheet'''
+    max_col = np_sh.shape[1]
+    for column in range(35, max_col):
+        try:
             tag = Tag(Название = np_sh[0, column])
             add_to_db(tag)
-            # logger.info(f"Add {tag.Название} tag")
-        # except:
-            # session.rollback()
-            # continue
-    
-    
+            logger.info(f"Add {tag.Название} tag")
+        except BaseException as er:
+            logger.error(er)
+            continue
+
+def parse_messages(np_sh):
+    '''Create message object and add tags into it'''
+    max_col = np_sh.shape[1]
+    url_re = r'.*\(\"{1}(.*)\"\){1}'
     for row in range(1, np_sh.shape[0] + 1):
         try:
-            processed_flag = 0 if np_sh[(row, 34)] == 'Нет' else 1
-            
+            processed_flag = 0 if np_sh[(row, 34)] == 'Нет' else 1           
             wom_flag = 1 if np_sh[row, 33] == 'WOM' else 0
-
             aggression_flag = 1 if np_sh[row, 26] == 'Агрессия' else 0
-            
             author_url = re.sub(url_re, r'\1', np_sh[row, 9]) if np_sh[row, 9] else None
-
             source_url = re.sub(url_re, r'\1', np_sh[row, 12]) if np_sh[row, 12] else None
-            # logger.debug(f'Start create msg')
+            logger.debug(f'Start create msg')
             message_dict = {
                 "id_Сообщения": np_sh[row, 1],
                 "Дата": np_sh[row, 0],
@@ -85,26 +76,34 @@ def run():
                 "WOM": wom_flag,	
                 "Обработано": processed_flag,
             }
-            
             message = Message(**message_dict)
-            # logger.debug(f"End create {message.id_Сообщения} msg")
+            logger.debug(f"End create {message.id_Сообщения} msg")
             add_to_db(message)
-            # logger.info(f"Add {message.id_Сообщения} msg")
-            msg_tags = []
-            for column in range(35, max_col-1):
-                if np_sh[row, column]:
-                    msg_tags.append(np_sh[row, column])
-            
-            add_tags_to_message(message.id_Сообщения, msg_tags)
-            # logger.info(f"Add {message.id_Сообщения} tags msg")
-            bar.next()
-        except:
+            logger.info(f"Add {message.id_Сообщения} msg")
+            try:
+                msg_tags = []
+                for column in range(35, max_col):
+                    if np_sh[row, column]:
+                        msg_tags.append(np_sh[row, column])
+                add_tags_to_message(message.id_Сообщения, msg_tags)
+            except BaseException as er:
+                logger.error(er)
+            logger.info(f"Add {message.id_Сообщения} tags msg")
+        except BaseException as er:
+            logger.error(er)
             continue
 
-    elapsed_time = datetime.now() - start_time
 
-    session.close()
-    print('\n')
-    wb.close()
-    print(elapsed_time)
-    bar.finish() 
+def run():
+    '''Run a parser'''
+    logger.add(
+        "logs/debug.log",
+        format="{time} {level} {message}",
+        level="DEBUG",
+        rotation='15 MB',
+        compression='zip')
+    np_sh = open_excel()
+    parse_tags(np_sh)
+    parse_messages(np_sh)
+    close_session()
+    
